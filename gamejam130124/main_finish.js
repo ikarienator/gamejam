@@ -26,8 +26,8 @@ var WIDTH = 34;
 var HEIGHT = 20;
 var BLOCK_SIZE = 30;
 var SCORE_OFFSET_X = 40;
-var BULLET_SPEED = 0.3;
-var BULLET_RADIUS = 6;
+var BULLET_SPEED = 1;
+var BULLET_RADIUS = 4;
 var ENEMY_SPEED = 0.05;
 var ENEMY_RADIUS = 10;
 var CANVAS_WIDTH = WIDTH * BLOCK_SIZE;
@@ -202,24 +202,19 @@ function Sentinel(x, y) {
   this.x = x * BLOCK_SIZE + BLOCK_SIZE;
   this.y = y * BLOCK_SIZE + BLOCK_SIZE;
   this.direction = 0;
-
   this.next_time = +new Date() + 1000;
-
   blocked[x][y] = true;
   blocked[x + 1][y] = true;
   blocked[x][y + 1] = true;
   blocked[x + 1][y + 1] = true;
   updateField();
 }
-
 Sentinel.prototype.range = 8;
 Sentinel.prototype.draw = function (ctx) {
   ctx.save();
-
   ctx.lineWidth = 3;
   ctx.strokeStyle = 'black';
   ctx.fillStyle = '#999';
-
   var x = this.x;
   var y = this.y;
   ctx.beginPath();
@@ -252,13 +247,12 @@ Sentinel.prototype.update = function () {
     sentinel.direction = Math.atan2(nearest_enemy.y - y, nearest_enemy.x - x);
     if (sentinel.next_time < +new Date()) {
       sentinel.next_time = +new Date() + 1000;
-      nearest_enemy.life -= 20;
-//      bullets.create(
-//        x + 20 * Math.cos(sentinel.direction),
-//        y + 20 * Math.sin(sentinel.direction),
-//        BULLET_SPEED * Math.cos(sentinel.direction),
-//        BULLET_SPEED * Math.sin(sentinel.direction)
-//      );
+      bullets.create(
+        x + 20 * Math.cos(sentinel.direction),
+        y + 20 * Math.sin(sentinel.direction),
+        BULLET_SPEED * Math.cos(sentinel.direction),
+        BULLET_SPEED * Math.sin(sentinel.direction)
+      );
     }
   }
   return true;
@@ -302,6 +296,9 @@ Bullet.prototype.update = function (dt) {
   var bullet = this;
   bullet.x += bullet.vx * dt;
   bullet.y += bullet.vy * dt;
+  if (bullet.x < 0 || bullet.y < 0 || bullet.x > CANVAS_WIDTH || bullet.y > CANVAS_HEIGHT) {
+    return false;
+  }
   for (var i = 0; i < enemies.length; i++) {
     var enemy = enemies[i];
     var dx = enemy.x - bullet.x;
