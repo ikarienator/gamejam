@@ -41,8 +41,8 @@ var cursor_y = 0;
 var field = [];
 var blocked = [];
 
-var dxs = [-1, 0, 1, 0];
-var dys = [0, 1, 0, -1];
+var dxs = [-1, -1, 0, 1, 1, 1, 0, -1];
+var dys = [0, 1, 1, 1, 0, -1, -1, -1];
 
 
 function initCheckerBoard() {
@@ -70,7 +70,7 @@ function updateField() {
       field[x][y].distance = Infinity;
     }
   }
-  var d, new_x, new_y;
+  var d, new_x, new_y, l;
   queue.push({x: 0, y: 0});
   field[0][0].distance = 0;
   while (queue_top < queue.length) {
@@ -78,9 +78,10 @@ function updateField() {
     x = obj.x;
     y = obj.y;
     dist = field[x][y].distance;
-    for (d = 0; d < 4; d++) {
+    for (d = 0; d < 8; d++) {
       new_x = dxs[d] + x;
       new_y = dys[d] + y;
+      l = Math.sqrt(dxs[d] * dxs[d] + dys[d] * dys[d]);
       if (new_x < 0 || new_x >= WIDTH) {
         continue;
       }
@@ -90,8 +91,8 @@ function updateField() {
       if (blocked[new_x][new_y]) {
         continue;
       }
-      if (field[new_x][new_y].distance > dist + 1) {
-        field[new_x][new_y].distance = dist + 1;
+      if (field[new_x][new_y].distance > dist + l) {
+        field[new_x][new_y].distance = dist + l;
         field[new_x][new_y].vx = -dxs[d];
         field[new_x][new_y].vy = -dys[d];
         queue.push({
@@ -105,35 +106,6 @@ function updateField() {
 
 updateField();
 
-function validate() {
-  for (var i = 0, l = entrance.length; i < l; i++) {
-    var en = entrance[i];
-    if (blocked[en[0]][en[1]]) {
-      return false;
-    }
-    if (!isFinite(field[en[0]][en[1]].distance)) {
-      return false;
-    }
-  }
-  for (i = 0, l = enemies.length; i < l; i++) {
-    en = enemies[i];
-    if (blocked[en.idx_x][en.idx_y]) {
-      return false;
-    }
-    if (blocked[en.target_x][en.target_y]) {
-      return false;
-    }
-    if (!isFinite(field[en.idx_x][en.idx_y].distance)) {
-      return false;
-    }
-    if (!isFinite(field[en.target_x][en.target_y].distance)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 function testPlacement(x, y) {
   if (x < 0) {
     return false;
@@ -145,20 +117,56 @@ function testPlacement(x, y) {
     return false;
   }
   if (blocked[x][y] || blocked[x][y + 1] || blocked[x + 1][y] || blocked[x + 1][y + 1]) {
-    return null;
+    return false;
   }
 
   blocked[x][y] = true;
   blocked[x + 1][y] = true;
   blocked[x][y + 1] = true;
   blocked[x + 1][y + 1] = true;
-  updateField();
-  var ok = validate();
+  var ok = true,
+    ds = new DisjointSet(WIDTH * HEIGHT),
+    i, j, l, source;
+  for (j = 0; j < HEIGHT; j++) {
+    for (i = 0; i < WIDTH; i++) {
+      if (!blocked[i][j]) {
+        if (i + 1 < WIDTH) {
+          if (!blocked[i + 1][j]) {
+            ds.join(i + j * WIDTH, i + 1 + j * WIDTH);
+          }
+        }
+        if (j + 1 < HEIGHT) {
+          if (!blocked[i ][j + 1]) {
+            ds.join(i + j * WIDTH, i + j * WIDTH + WIDTH);
+          }
+        }
+      }
+    }
+  }
+  source = ds.get(0);
+  for (i = 0, l = enemies.length; i < l; i++) {
+    if (source !== ds.get(enemies[i].idx_x + enemies[i].idx_y * WIDTH)) {
+      ok = false;
+      break;
+    }
+    if (source !== ds.get(enemies[i].target_x + enemies[i].target_y * WIDTH)) {
+      ok = false;
+      break;
+    }
+  }
+  if (ok) {
+    for (i = 0, l = entrance.length; i < l; i++) {
+      if (source !== ds.get(entrance[i][0] + entrance[i][1] * WIDTH)) {
+        ok = false;
+        break;
+      }
+    }
+  }
+
   blocked[x][y] = false;
   blocked[x + 1][y] = false;
   blocked[x][y + 1] = false;
   blocked[x + 1][y + 1] = false;
-  updateField();
   return ok;
 }
 
@@ -212,9 +220,6 @@ function Sentinel(x, y) {
 Sentinel.prototype.range = 8;
 Sentinel.prototype.draw = function (ctx) {
   ctx.save();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = 'black';
-  ctx.fillStyle = '#999';
   var x = this.x;
   var y = this.y;
   ctx.beginPath();
@@ -287,7 +292,6 @@ Bullet.prototype.draw = function (ctx) {
   ctx.save();
   ctx.beginPath();
   ctx.arc(this.x, this.y, 8, 0, Math.PI * 2, false);
-  ctx.fillStyle = 'black';
   ctx.fill();
   ctx.restore();
 };
@@ -325,10 +329,6 @@ function Enemy(idx_x, idx_y) {
 Enemy.prototype.life = 300;
 Enemy.prototype.draw = function (ctx) {
   ctx.save();
-
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = 'black';
-  ctx.fillStyle = '#F99';
   ctx.beginPath();
   ctx.arc(this.x, this.y, ENEMY_RADIUS, 0, Math.PI * 2, false);
   ctx.moveTo(this.x, this.y);
@@ -351,6 +351,7 @@ Enemy.prototype.update = function (dt) {
   var target_y = (this.target_y + 0.5) * BLOCK_SIZE;
   var vx = this.target_x - this.idx_x;
   var vy = this.target_y - this.idx_y;
+
   if ((target_x - this.x) * vx < 0 || (target_y - this.y) * vy < 0) {
     this.idx_x = this.target_x;
     this.idx_y = this.target_y;
@@ -362,7 +363,8 @@ Enemy.prototype.update = function (dt) {
     this.target_x += vx;
     this.target_y += vy;
   }
-  var speed = dt * ENEMY_SPEED;
+  var l = Math.sqrt(vx * vx + vy * vy);
+  var speed = dt * ENEMY_SPEED / l;
   this.x += speed * vx;
   this.y += speed * vy;
   return true;
@@ -398,18 +400,6 @@ $(document).ready(function () {
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   }
 
-  function drawBoard() {
-    ctx.save();
-    for (var x = 0; x < WIDTH; x++) {
-      for (var y = 0; y < HEIGHT; y++) {
-        ctx.fillStyle = ((x + y) % 2 == 0) ? '#DDD' : '#FFF';
-        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-      }
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
   function drawScore() {
     ctx.save();
     ctx.font = "30px Courier";
@@ -435,13 +425,17 @@ $(document).ready(function () {
     ctx.restore();
   }
 
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'black';
   function draw() {
     clear();
-    drawBoard();
     drawScore();
     drawCursor();
+    ctx.fillStyle = '#999';
     sentinels.draw(ctx);
+    ctx.fillStyle = 'black';
     bullets.draw(ctx);
+    ctx.fillStyle = '#F99';
     enemies.draw(ctx);
   }
 

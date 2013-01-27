@@ -4,6 +4,7 @@
     <title>Game Jam 13-01-24</title>
     <script src="jq.js"></script>
     <script src="main.js"></script>
+    <script src="DisjointSet.js"></script>
     <style>
         html, div {
             margin: 0;
@@ -15,14 +16,18 @@
             background: black;
             font: 25px Courier;
         }
+
+        #id {
+            display: inline;
+            margin: 0 auto;
+            width: 60px;
+            height: 600px;
+            background: white;
+        }
     </style>
 </head>
 <body>
 <div style="margin: 0 auto; text-align: center;">
-    <div id="toolbar" style="margin: 0 auto; height: 60px; background: white; width: 1020px; margin-bottom: 3px;">
-        Click on checker board to create your sentinels.
-        $100 each.
-    </div>
     <canvas id="canvas" style="-webkit-user-select: none;">
 
     </canvas>
