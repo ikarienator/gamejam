@@ -1,284 +1,469 @@
 Number.prototype.toMoney = function (decimals, decimal_sep, thousands_sep) {
-    var n = this,
-        c = isNaN(decimals) ? 2 : Math.abs(decimals), //if decimal is zero we must take it, it means user does not want to show any decimal
-        d = decimal_sep || '.', //if no decimal separator is passed we use the dot as default decimal separator (we MUST use a decimal separator)
+  var n = this,
+    c = isNaN(decimals) ? 2 : Math.abs(decimals),
+    d = decimal_sep || '.',
+    t = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep,
+    sign = (n < 0) ? '-' : '',
+    i = parseInt(n = Math.abs(n).toFixed(c)) + '',
+    j;
+  j = ((j = i.length) > 3) ? j % 3 : 0;
+  return sign + (j ? i.substr(0, j) + t : '') + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + t) + (c ? d + Math.abs(n - i).toFixed(c).slice(2) : '');
+};
 
-    /*
-     according to [http://stackoverflow.com/questions/411352/how-best-to-determine-if-an-argument-is-not-sent-to-the-javascript-function]
-     the fastest way to check for not defined parameter is to use typeof value === 'undefined'
-     rather than doing value === undefined.
-     */
-        t = (typeof thousands_sep === 'undefined') ? ',' : thousands_sep, //if you don't want to use a thousands separator you can pass empty string as thousands_sep value
+Array.prototype.removeAll = function (toDelete) {
+  var i = 0, j = 0, k = 0;
+  for (; i < this.length; i++) {
+    if (this[i] === toDelete[k]) {
+      k++;
+    } else {
+      this[j++] = this[i];
+    }
+  }
+  this.length = j;
+};
 
-        sign = (n < 0) ? '-' : '',
+var WIDTH = 34;
+var HEIGHT = 20;
+var BLOCK_SIZE = 30;
+var SCORE_OFFSET_X = 40;
+var BULLET_SPEED = 1;
+var BULLET_RADIUS = 4;
+var ENEMY_SPEED = 0.05;
+var ENEMY_RADIUS = 10;
+var CANVAS_WIDTH = WIDTH * BLOCK_SIZE;
+var CANVAS_HEIGHT = HEIGHT * BLOCK_SIZE;
+var entrance = [
+  [WIDTH - 1, HEIGHT / 2]
+];
+var earning = 300;
+var cursor_x = 0;
+var cursor_y = 0;
+var field = [];
+var blocked = [];
 
-    //extracting the absolute value of the integer part of the number and converting to string
-        i = parseInt(n = Math.abs(n).toFixed(c)) + '',
+var dxs = [-1, 0, 1, 0];
+var dys = [0, 1, 0, -1];
 
-        j;
-    j = ((j = i.length) > 3) ? j % 3 : 0;
-    return sign + (j ? i.substr(0, j) + t : '') + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + t) + (c ? d + Math.abs(n - i).toFixed(c).slice(2) : '');
+
+function initCheckerBoard() {
+  for (var x = 0; x < WIDTH; x++) {
+    var arr = [], arr2 = [];
+    for (var y = 0; y < HEIGHT; y++) {
+      arr[y] = false;
+      arr2[y] = {
+        distance: Infinity,
+        vx: 0,
+        vy: -1
+      };
+    }
+    blocked[x] = arr;
+    field[x] = arr2;
+  }
+}
+
+initCheckerBoard();
+
+function updateField() {
+  var queue = [], queue_top = 0, obj, x, y, dist;
+  for (x = 0; x < WIDTH; x++) {
+    for (y = 0; y < HEIGHT; y++) {
+      field[x][y].distance = Infinity;
+    }
+  }
+  var d, new_x, new_y;
+  queue.push({x: 0, y: 0});
+  field[0][0].distance = 0;
+  while (queue_top < queue.length) {
+    obj = queue[queue_top++];
+    x = obj.x;
+    y = obj.y;
+    dist = field[x][y].distance;
+    for (d = 0; d < 4; d++) {
+      new_x = dxs[d] + x;
+      new_y = dys[d] + y;
+      if (new_x < 0 || new_x >= WIDTH) {
+        continue;
+      }
+      if (new_y < 0 || new_y >= HEIGHT) {
+        continue;
+      }
+      if (blocked[new_x][new_y]) {
+        continue;
+      }
+      if (field[new_x][new_y].distance > dist + 1) {
+        field[new_x][new_y].distance = dist + 1;
+        field[new_x][new_y].vx = -dxs[d];
+        field[new_x][new_y].vy = -dys[d];
+        queue.push({
+          x: new_x,
+          y: new_y
+        })
+      }
+    }
+  }
+}
+
+updateField();
+
+function validate() {
+  for (var i = 0, l = entrance.length; i < l; i++) {
+    var en = entrance[i];
+    if (blocked[en[0]][en[1]]) {
+      return false;
+    }
+    if (!isFinite(field[en[0]][en[1]].distance)) {
+      return false;
+    }
+  }
+  for (i = 0, l = enemies.length; i < l; i++) {
+    en = enemies[i];
+    if (blocked[en.idx_x][en.idx_y]) {
+      return false;
+    }
+    if (blocked[en.target_x][en.target_y]) {
+      return false;
+    }
+    if (!isFinite(field[en.idx_x][en.idx_y].distance)) {
+      return false;
+    }
+    if (!isFinite(field[en.target_x][en.target_y].distance)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function testPlacement(x, y) {
+  if (x < 0) {
+    return false;
+  }
+  if (x + 1 >= WIDTH) {
+    return false;
+  }
+  if (y + 1 >= HEIGHT) {
+    return false;
+  }
+  if (blocked[x][y] || blocked[x][y + 1] || blocked[x + 1][y] || blocked[x + 1][y + 1]) {
+    return null;
+  }
+
+  blocked[x][y] = true;
+  blocked[x + 1][y] = true;
+  blocked[x][y + 1] = true;
+  blocked[x + 1][y + 1] = true;
+  updateField();
+  var ok = validate();
+  blocked[x][y] = false;
+  blocked[x + 1][y] = false;
+  blocked[x][y + 1] = false;
+  blocked[x + 1][y + 1] = false;
+  updateField();
+  return ok;
+}
+
+function Registry(type) {
+  this.type = type;
+}
+
+Registry.prototype = [];
+Registry.prototype.create = function () {
+  var obj = this.type.create.apply(this.type, arguments);
+  if (obj) {
+    this.push(obj);
+  }
+  return obj;
+};
+Registry.prototype.draw = function (ctx) {
+  for (var i = 0, l = this.length; i < l; i++) {
+    this[i].draw(ctx);
+  }
+};
+Registry.prototype.update = function (dt) {
+  for (var i = 0, j = 0, l = this.length; i < l; i++) {
+    if (this[i].update(dt) !== false) {
+      this[j++] = this[i];
+    }
+  }
+  this.length = j;
+};
+
+var sentinels = new Registry(Sentinel);
+var bullets = new Registry(Bullet);
+var enemies = new Registry(Enemy);
+
+/**
+ * Sentinel class
+ * @param x
+ * @param y
+ * @constructor
+ */
+function Sentinel(x, y) {
+  this.x = x * BLOCK_SIZE + BLOCK_SIZE;
+  this.y = y * BLOCK_SIZE + BLOCK_SIZE;
+  this.direction = 0;
+  this.next_time = +new Date() + 1000;
+  blocked[x][y] = true;
+  blocked[x + 1][y] = true;
+  blocked[x][y + 1] = true;
+  blocked[x + 1][y + 1] = true;
+  updateField();
+}
+Sentinel.prototype.range = 8;
+Sentinel.prototype.draw = function (ctx) {
+  ctx.save();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'black';
+  ctx.fillStyle = '#999';
+  var x = this.x;
+  var y = this.y;
+  ctx.beginPath();
+  ctx.arc(x, y, 20, 0, Math.PI * 2, false);
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 25 * Math.cos(this.direction), y + 25 * Math.sin(this.direction));
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+};
+Sentinel.prototype.update = function () {
+  var sentinel = this;
+  var x = this.x;
+  var y = this.y;
+  var nearest_enemy = null;
+  var nearest = Infinity;
+  var range = sentinel.range * BLOCK_SIZE;
+  enemies.forEach(function (enemy) {
+    var path = field[enemy.idx_x][enemy.idx_y].distance;
+    var dx = x - enemy.x;
+    var dy = y - enemy.y;
+    if (nearest > path) {
+      if (dx * dx + dy * dy < range * range) {
+        nearest = path;
+        nearest_enemy = enemy;
+      }
+    }
+  });
+  if (nearest_enemy) {
+    sentinel.direction = Math.atan2(nearest_enemy.y - y, nearest_enemy.x - x);
+    if (sentinel.next_time < +new Date()) {
+      sentinel.next_time = +new Date() + 1000;
+      bullets.create(
+        x + 20 * Math.cos(sentinel.direction),
+        y + 20 * Math.sin(sentinel.direction),
+        BULLET_SPEED * Math.cos(sentinel.direction),
+        BULLET_SPEED * Math.sin(sentinel.direction)
+      );
+    }
+  }
+  return true;
+};
+Sentinel.create = function (x, y) {
+  if (earning < 100) {
+    return null;
+  }
+  if (!testPlacement(x, y)) {
+    return null;
+  }
+
+  earning -= 100;
+  return new Sentinel(x, y);
+};
+
+/**
+ * Bullet class
+ * @param x
+ * @param y
+ * @param vx
+ * @param vy
+ * @constructor
+ */
+function Bullet(x, y, vx, vy) {
+  this.x = x;
+  this.y = y;
+  this.vx = vx;
+  this.vy = vy;
+}
+Bullet.prototype.draw = function (ctx) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(this.x, this.y, 8, 0, Math.PI * 2, false);
+  ctx.fillStyle = 'black';
+  ctx.fill();
+  ctx.restore();
+};
+Bullet.prototype.update = function (dt) {
+  var rad = ENEMY_RADIUS + BULLET_RADIUS;
+  var bullet = this;
+  bullet.x += bullet.vx * dt;
+  bullet.y += bullet.vy * dt;
+  if (bullet.x < 0 || bullet.y < 0 || bullet.x > CANVAS_WIDTH || bullet.y > CANVAS_HEIGHT) {
+    return false;
+  }
+  for (var i = 0; i < enemies.length; i++) {
+    var enemy = enemies[i];
+    var dx = enemy.x - bullet.x;
+    var dy = enemy.y - bullet.y;
+    if (dx * dx + dy * dy < rad * rad) {
+      enemy.life -= 20;
+      return false;
+    }
+  }
+  return true;
+};
+Bullet.create = function (x, y, vx, vy) {
+  return new Bullet(x, y, vx, vy);
+};
+
+function Enemy(idx_x, idx_y) {
+  this.idx_x = idx_x;
+  this.idx_y = idx_y;
+  this.target_x = field[idx_x][idx_y].vx + idx_x;
+  this.target_y = field[idx_x][idx_y].vy + idx_y;
+  this.x = idx_x * BLOCK_SIZE + 0.5 * BLOCK_SIZE;
+  this.y = idx_y * BLOCK_SIZE + 0.5 * BLOCK_SIZE;
+}
+Enemy.prototype.life = 300;
+Enemy.prototype.draw = function (ctx) {
+  ctx.save();
+
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'black';
+  ctx.fillStyle = '#F99';
+  ctx.beginPath();
+  ctx.arc(this.x, this.y, ENEMY_RADIUS, 0, Math.PI * 2, false);
+  ctx.moveTo(this.x, this.y);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+};
+Enemy.prototype.update = function (dt) {
+  var enemy = this;
+  if (enemy.life <= 0) {
+    earning += 150;
+    return false;
+  }
+  var x = Math.round(this.x / BLOCK_SIZE - 0.5);
+  var y = Math.round(this.y / BLOCK_SIZE - 0.5);
+  if (x == 0 && y == 0) {
+    return false;
+  }
+  var target_x = (this.target_x + 0.5) * BLOCK_SIZE;
+  var target_y = (this.target_y + 0.5) * BLOCK_SIZE;
+  var vx = this.target_x - this.idx_x;
+  var vy = this.target_y - this.idx_y;
+  if ((target_x - this.x) * vx < 0 || (target_y - this.y) * vy < 0) {
+    this.idx_x = this.target_x;
+    this.idx_y = this.target_y;
+    this.x = (this.idx_x + 0.5) * BLOCK_SIZE;
+    this.y = (this.idx_y + 0.5) * BLOCK_SIZE;
+    var fe = field[this.idx_x][this.idx_y];
+    vx = fe.vx;
+    vy = fe.vy;
+    this.target_x += vx;
+    this.target_y += vy;
+  }
+  var speed = dt * ENEMY_SPEED;
+  this.x += speed * vx;
+  this.y += speed * vy;
+  return true;
+};
+Enemy.create = function (x, y) {
+  return new Enemy(x, y);
 };
 
 $(document).ready(function () {
-    var $canvas = $('#canvas');
-    var canvas = $canvas[0];
-    var ctx = canvas.getContext('2d');
-    var WIDTH = 17;
-    var HEIGHT = 10;
-    var BLOCK_SIZE = 60;
-    var CANVAS_WIDTH = canvas.width = WIDTH * BLOCK_SIZE;
-    var CANVAS_HEIGHT = canvas.height = HEIGHT * BLOCK_SIZE;
-    var SCORE_OFFSET_X = 40;
-    var BULLET_SPEED = 0.3;
-    var ENEMY_SPEED = 0.05;
-    var sentinels = [];
-    var bullets = [];
-    var enemies = [];
-    var earning = 1000;
-    var operation = 'create';
-    var cursor_x = 0;
-    var cursor_y = 0;
+  var $canvas = $('#canvas');
+  var canvas = $canvas[0];
+  var ctx = canvas.getContext('2d');
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = CANVAS_HEIGHT;
+
+  $canvas.mousemove(function (e) {
+    var x = e.offsetX,
+      y = e.offsetY;
+    cursor_x = Math.floor(x / BLOCK_SIZE + 0.5);
+    cursor_y = Math.floor(y / BLOCK_SIZE + 0.5);
+  });
+
+  $canvas.click(function (e) {
+    var x = e.offsetX,
+      y = e.offsetY;
+    x = Math.floor(x / BLOCK_SIZE - 0.5);
+    y = Math.floor(y / BLOCK_SIZE - 0.5);
+    sentinels.create(x, y);
+  });
+
+  function clear() {
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  }
+
+  function drawBoard() {
+    ctx.save();
+    for (var x = 0; x < WIDTH; x++) {
+      for (var y = 0; y < HEIGHT; y++) {
+        ctx.fillStyle = ((x + y) % 2 == 0) ? '#DDD' : '#FFF';
+        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawScore() {
+    ctx.save();
     ctx.font = "30px Courier";
-    $canvas.mousemove(function (e) {
-        var x = e.offsetX,
-            y = e.offsetY;
-        cursor_x = Math.floor(x / BLOCK_SIZE);
-        cursor_y = Math.floor(y / BLOCK_SIZE);
-    });
-    $canvas.click(function (e) {
-        var x = e.offsetX,
-            y = e.offsetY;
-        x = Math.floor(x / BLOCK_SIZE);
-        y = Math.floor(y / BLOCK_SIZE);
-        if (earning <= 0) {
-            return;
-        }
-        for (var i = 0; i < sentinels.length; i++) {
-            if (sentinels[i].x == x && sentinels[i].y == y) {
-                return;
-            }
-        }
-        earning -= 100;
-        sentinels.push({
-            x:x,
-            y:y,
-            next_time:+new Date() + 1000,
-            direction:0,
-            life:3000
-        })
-    });
+    ctx.fillStyle = "#ff0";
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 4;
+    ctx.textAlign = 'right';
+    ctx.beginPath();
+    ctx.strokeText('$' + earning.toMoney(), CANVAS_WIDTH - SCORE_OFFSET_X, 40);
+    ctx.fillText('$' + earning.toMoney(), CANVAS_WIDTH - SCORE_OFFSET_X, 40);
+    ctx.restore();
+  }
 
-    function clear() {
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  function drawCursor() {
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = "none";
+    ctx.strokeStyle = "rgba(255,0,0,0.3)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cursor_x * BLOCK_SIZE, cursor_y * BLOCK_SIZE, BLOCK_SIZE * 0.8, 0, Math.PI * 2, false);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    clear();
+    drawBoard();
+    drawScore();
+    drawCursor();
+    sentinels.draw(ctx);
+    bullets.draw(ctx);
+    enemies.draw(ctx);
+  }
+
+  var lastTime = +new Date();
+  var next_enemy = +new Date();
+
+  function update() {
+    var dt = +new Date() - lastTime;
+    lastTime = +new Date();
+    bullets.update(dt);
+    sentinels.update(dt);
+    enemies.update(dt);
+    if (next_enemy < +new Date()) {
+      next_enemy = +new Date() + 3000;
+      entrance.forEach(function (ent) {
+        enemies.create(ent[0], ent[1]);
+      });
+
     }
-
-    function drawBoard() {
-        ctx.save();
-        for (var x = 0; x < WIDTH; x++) {
-            for (var y = 0; y < HEIGHT; y++) {
-                ctx.fillStyle = ((x + y) % 2 == 0) ? '#DDD' : '#FFF';
-                ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-            }
-        }
-        ctx.restore();
-    }
-
-    function drawScore() {
-        ctx.save();
-        ctx.fillStyle = "#ff0";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 4;
-        ctx.textAlign = 'right';
-        ctx.beginPath();
-        ctx.strokeText('$' + earning.toMoney(), CANVAS_WIDTH - SCORE_OFFSET_X, 40);
-        ctx.fillText('$' + earning.toMoney(), CANVAS_WIDTH - SCORE_OFFSET_X, 40);
-        ctx.restore();
-    }
-
-    function drawCursor() {
-        ctx.save();
-        ctx.beginPath();
-        ctx.fillStyle = "none";
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(cursor_x * BLOCK_SIZE + BLOCK_SIZE / 2, cursor_y * BLOCK_SIZE + BLOCK_SIZE / 2, BLOCK_SIZE * 0.8 / 2, 0, Math.PI * 2, false);
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    function drawBullets() {
-        ctx.save();
-        ctx.beginPath();
-        bullets.forEach(function (bullet) {
-            ctx.arc(bullet.x, bullet.y, 8, 0, Math.PI * 2, false);
-        });
-        ctx.fillStyle = 'black';
-        ctx.fill();
-        ctx.restore();
-    }
-
-    function drawSentinels() {
-        ctx.save();
-
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'black';
-        ctx.fillStyle = '#999';
-        sentinels.forEach(function (sentinel) {
-            var x = sentinel.x * BLOCK_SIZE + BLOCK_SIZE / 2;
-            var y = sentinel.y * BLOCK_SIZE + BLOCK_SIZE / 2;
-            ctx.beginPath();
-            ctx.arc(x, y, 20, 0, Math.PI * 2, false);
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + 25 * Math.cos(sentinel.direction), y + 25 * Math.sin(sentinel.direction));
-            ctx.fill();
-            ctx.stroke();
-        });
-        ctx.restore();
-    }
-
-    function drawEnemies() {
-        ctx.save();
-
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'black';
-        ctx.fillStyle = '#F99';
-        enemies.forEach(function (enemy) {
-            var x = enemy.x;
-            var y = enemy.y;
-            ctx.beginPath();
-            ctx.arc(x, y, 20, 0, Math.PI * 2, false);
-            ctx.moveTo(x, y);
-            ctx.fill();
-            ctx.stroke();
-        });
-        ctx.restore();
-    }
-
-    function draw() {
-        clear();
-        drawBoard();
-        drawScore();
-        drawCursor();
-        drawSentinels();
-        drawBullets();
-        drawEnemies();
-    }
-
-    var lastTime = +new Date();
-    var next_enemy = +new Date();
-
-    function updateBullets(dt) {
-        bullets.forEach(function (bullet) {
-            bullet.x += bullet.vx * dt;
-            bullet.y += bullet.vy * dt;
-        });
-    }
-
-    function updateSentinels(dt) {
-        sentinels.forEach(function (sentinel) {
-            var x = sentinel.x * BLOCK_SIZE + BLOCK_SIZE / 2;
-            var y = sentinel.y * BLOCK_SIZE + BLOCK_SIZE / 2;
-            var nearest_enemy = null;
-            var nearest = Infinity;
-            enemies.forEach(function (enemy) {
-                var dx = enemy.x - x;
-                var dy = enemy.y - y;
-                if (nearest > dx * dx + dy * dy) {
-                    nearest = dx * dx + dy * dy;
-                    nearest_enemy = enemy;
-                }
-            });
-            if (nearest_enemy) {
-                sentinel.direction = Math.atan2(nearest_enemy.y - y, nearest_enemy.x - x);
-                if (sentinel.next_time < +new Date()) {
-                    sentinel.next_time = +new Date() + 1000;
-                    bullets.push({
-                        x:x + 20 * Math.cos(sentinel.direction),
-                        y:y + 20 * Math.sin(sentinel.direction),
-                        vx:BULLET_SPEED * Math.cos(sentinel.direction),
-                        vy:BULLET_SPEED * Math.sin(sentinel.direction)
-                    })
-                }
-            }
-        });
-    }
-
-    function updateEnemies(dt) {
-        var toDelete = [];
-        enemies.forEach(function (enemy) {
-            if (enemy.life <= 0) {
-                toDelete.push(enemy);
-                return;
-            }
-            var nearest_x = 0;
-            var nearest_y = 0;
-            var nearest = Infinity;
-            var nearest_sentinel = null;
-            sentinels.forEach(function (sentinel) {
-                var x = sentinel.x * BLOCK_SIZE + BLOCK_SIZE / 2;
-                var y = sentinel.y * BLOCK_SIZE + BLOCK_SIZE / 2;
-                var dx = x - enemy.x;
-                var dy = y - enemy.y;
-                if (dx * dx + dy * dy < nearest) {
-                    nearest_sentinel = sentinel;
-                    nearest = dx * dx + dy * dy;
-                    nearest_x = x;
-                    nearest_y = y;
-                }
-            });
-            if (!isFinite(nearest)) {
-                nearest = enemy.x * enemy.x + enemy.y * enemy.y;
-            }
-            if (nearest < BLOCK_SIZE * BLOCK_SIZE) {
-                if (nearest_sentinel) {
-                    nearest_sentinel.life -= dt;
-                    if (nearest_sentinel.life < 0) {
-                        for (var i = 0; i < sentinels.length; i++) {
-                            if (sentinels[i] == nearest_sentinel) {
-                                sentinels.splice(i, 1);
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    toDelete.push(enemy);
-                }
-            } else {
-                var q = ENEMY_SPEED * dt / Math.sqrt(nearest);
-                enemy.x += q * (nearest_x - enemy.x);
-                enemy.y += q * (nearest_y - enemy.y);
-            }
-        });
-        for (var i = 0, j = 0, k = 0; i < enemies.length; i++) {
-            if (enemies[i] === toDelete[k]) {
-                k++;
-            } else {
-                enemies[j++] = enemies[i];
-            }
-        }
-        enemies.length = j;
-        if (next_enemy < +new Date()) {
-            next_enemy = +new Date() + 6000;
-            enemies.push({
-                x:CANVAS_WIDTH,
-                y:CANVAS_HEIGHT * 0.5,
-                life:100
-            });
-        }
-    }
-
-    function update() {
-        var dt = +new Date() - lastTime;
-        lastTime = +new Date();
-        updateBullets(dt);
-        updateSentinels(dt);
-        updateEnemies(dt);
-        draw();
-        setTimeout(update, 15);
-    }
-
+    draw();
     setTimeout(update, 15);
+  }
+
+  setTimeout(update, 15);
 });
