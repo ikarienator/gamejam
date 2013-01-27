@@ -173,7 +173,6 @@ function testPlacement(x, y) {
 function Registry(type) {
   this.type = type;
 }
-
 Registry.prototype = [];
 Registry.prototype.create = function () {
   var obj = this.type.create.apply(this.type, arguments);
@@ -199,6 +198,7 @@ Registry.prototype.update = function (dt) {
 var sentinels = new Registry(Sentinel);
 var bullets = new Registry(Bullet);
 var enemies = new Registry(Enemy);
+var roadMarks = new Registry(RoadMark);
 
 /**
  * Sentinel class
@@ -373,6 +373,23 @@ Enemy.create = function (x, y) {
   return new Enemy(x, y);
 };
 
+function RoadMark(idx_x, idx_y) {
+  this.lambda = 0;
+  this.idx_x = idx_x;
+  this.idx_y = idx_y;
+  this.target_x = idx_x + field[idx_x][idx_y];
+  this.target_y = idx_y + field[idx_x][idx_y];
+}
+RoadMark.prototype.update = function (dt) {
+  this.lambda += dt;
+};
+RoadMark.prototype.draw = function (ctx) {
+
+};
+RoadMark.create = function (idx_x, idx_y) {
+  return new RoadMark(idx_x, idx_y);
+};
+
 $(document).ready(function () {
   var $canvas = $('#canvas');
   var canvas = $canvas[0];
@@ -431,6 +448,7 @@ $(document).ready(function () {
     clear();
     drawScore();
     drawCursor();
+    roadMarks.draw(ctx);
     ctx.fillStyle = '#999';
     sentinels.draw(ctx);
     ctx.fillStyle = 'black';
@@ -445,6 +463,7 @@ $(document).ready(function () {
   function update() {
     var dt = +new Date() - lastTime;
     lastTime = +new Date();
+    roadMarks.update(dt);
     bullets.update(dt);
     sentinels.update(dt);
     enemies.update(dt);
@@ -453,7 +472,6 @@ $(document).ready(function () {
       entrance.forEach(function (ent) {
         enemies.create(ent[0], ent[1]);
       });
-
     }
     draw();
     setTimeout(update, 15);
