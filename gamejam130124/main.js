@@ -436,9 +436,11 @@ $(document).ready(function () {
   var $canvas = $('#canvas');
   var canvas = $canvas[0];
   var ctx = canvas.getContext('2d');
-  canvas.width = CANVAS_WIDTH;
-  canvas.height = CANVAS_HEIGHT;
-
+  canvas.width = CANVAS_WIDTH * devicePixelRatio;
+  canvas.height = CANVAS_HEIGHT * devicePixelRatio;
+  canvas.style.width = CANVAS_WIDTH + 'px';
+  canvas.style.height = CANVAS_HEIGHT + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
   $canvas.mousemove(function (e) {
     var x = e.offsetX,
       y = e.offsetY;
