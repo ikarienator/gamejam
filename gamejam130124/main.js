@@ -377,14 +377,56 @@ function RoadMark(idx_x, idx_y) {
   this.lambda = 0;
   this.idx_x = idx_x;
   this.idx_y = idx_y;
-  this.target_x = idx_x + field[idx_x][idx_y];
-  this.target_y = idx_y + field[idx_x][idx_y];
+  this.target_x = idx_x + field[idx_x][idx_y].vx;
+  this.target_y = idx_y + field[idx_x][idx_y].vy;
 }
 RoadMark.prototype.update = function (dt) {
-  this.lambda += dt;
+  this.lambda += dt / 1000 * 4;
+  if (this.lambda > 1) {
+    var idx_x = this.target_x;
+    var idx_y = this.target_y;
+    if (idx_x === 0 && idx_y === 0) {
+      return false;
+    }
+    if (!isFinite(field[idx_x][idx_y].distance)) {
+      return false;
+    }
+    this.idx_x = idx_x;
+    this.idx_y = idx_y;
+    this.target_x = idx_x + field[idx_x][idx_y].vx;
+    this.target_y = idx_y + field[idx_x][idx_y].vy;
+    this.lambda = 0;
+  }
+  return true;
 };
+function placeRoadMark(ctx, x, y) {
+  var el = field[x][y];
+  var vx = el.vx;
+  var vy = el.vy;
+  var pixel_x = (x + 0.5) * BLOCK_SIZE;
+  var pixel_y = (y + 0.5) * BLOCK_SIZE;
+  ctx.save();
+  ctx.beginPath();
+  ctx.translate(pixel_x, pixel_y);
+  ctx.rotate(Math.atan2(vy, vx));
+  for (var i = 0; i < 3; i++) {
+    ctx.translate(5, 0);
+    ctx.moveTo(0, 5);
+    ctx.lineTo(6, 0);
+    ctx.lineTo(0, -5);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
 RoadMark.prototype.draw = function (ctx) {
-
+  ctx.save();
+  ctx.strokeStyle = 'grey';
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 1 - this.lambda;
+  placeRoadMark(ctx, this.idx_x, this.idx_y);
+  ctx.globalAlpha = this.lambda;
+  placeRoadMark(ctx, this.target_x, this.target_y);
+  ctx.restore();
 };
 RoadMark.create = function (idx_x, idx_y) {
   return new RoadMark(idx_x, idx_y);
@@ -459,7 +501,8 @@ $(document).ready(function () {
 
   var lastTime = +new Date();
   var next_enemy = +new Date();
-
+  var next_road_mark = +new Date();
+  roadMarks.create(WIDTH - 1, HEIGHT / 2);
   function update() {
     var dt = +new Date() - lastTime;
     lastTime = +new Date();
@@ -471,6 +514,12 @@ $(document).ready(function () {
       next_enemy = +new Date() + 3000;
       entrance.forEach(function (ent) {
         enemies.create(ent[0], ent[1]);
+      });
+    }
+    if (next_road_mark < +new Date()) {
+      next_road_mark = +new Date() + 1200;
+      entrance.forEach(function (ent) {
+        roadMarks.create(ent[0], ent[1]);
       });
     }
     draw();
