@@ -7,7 +7,7 @@ var ITEMS = [
 ];
 
 var WIDTH = 16;
-var HEIGHT = 9;
+var HEIGHT = 8;
 var COUNT = WIDTH * HEIGHT;
 var BLOCK_SIZE = 64;
 function rand() {
@@ -54,14 +54,21 @@ $(function () {
         img.addClass('activated');
         selected_item = item;
       } else {
+
         var src_item = selected_item;
+        selected_item.img.removeClass('activated');
+        selected_item = null;
+
+        // Toggle selection
+        if (src_item === item) {
+          return;
+        }
+
         var pos1 = getItemPos(src_item);
         var pos2 = getItemPos(item);
         if (pos1 === null) {
           return;
         }
-        selected_item.img.removeClass('activated');
-        selected_item = null;
 
         if (Math.abs(pos1[0] - pos2[0]) + Math.abs(pos1[1] - pos2[1]) == 1) {
 
@@ -75,7 +82,6 @@ $(function () {
           item.dst_pos = mapCoord(pos1);
           item.lambda = 0;
           item.moving = true;
-
 
           item.callback = function () {
             block_stacks[pos2[0]][pos2[1]] = src_item;
@@ -190,7 +196,11 @@ $(function () {
           if (!curr.moving && curr.src_pos[0] != curr.dst_pos[0] ||
             curr.src_pos[1] != curr.dst_pos[1]) {
             curr.moving = true;
+            curr.speed = 1.3;
             curr.lambda = 0;
+            curr.callback = function () {
+              this.speed = 4;
+            };
           }
         }
       }
