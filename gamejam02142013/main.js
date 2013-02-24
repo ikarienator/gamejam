@@ -77,11 +77,13 @@ $(function () {
           //swap
           src_item.src_pos = mapCoord(pos1);
           src_item.dst_pos = mapCoord(pos2);
+          src_item.img.style.zIndex = 1;
           src_item.lambda = 0;
           src_item.moving = true;
 
           item.src_pos = mapCoord(pos2);
           item.dst_pos = mapCoord(pos1);
+          item.img.style.zIndex = 0;
           item.lambda = 0;
           item.moving = true;
 
@@ -95,11 +97,13 @@ $(function () {
 
               src_item.src_pos = mapCoord(pos2);
               src_item.dst_pos = mapCoord(pos1);
+              src_item.img.style.zIndex = 0;
               src_item.lambda = 0;
               src_item.moving = true;
 
               item.src_pos = mapCoord(pos1);
               item.dst_pos = mapCoord(pos2);
+              item.img.style.zIndex = 1;
               item.lambda = 0;
               item.moving = true;
             } else {
