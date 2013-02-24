@@ -6,7 +6,7 @@ var ITEMS = [
   'peas'
 ];
 
-var WIDTH = 16;
+var WIDTH = 15;
 var HEIGHT = 8;
 var COUNT = WIDTH * HEIGHT;
 var BLOCK_SIZE = 64;
@@ -135,14 +135,15 @@ $(function () {
   }
 
   function findStrips() {
-    for (var x = 0; x < WIDTH; x++) {
-      for (var y = 0; y < HEIGHT; y++) {
-        var curr = block_stacks[x][y];
-        var curr_type = curr.type;
+    var x, y, curr, curr_type, l;
+    for (x = 0; x < WIDTH; x++) {
+      for (y = 0; y < HEIGHT; y++) {
+        curr = block_stacks[x][y];
+        curr_type = curr.type;
         if (x + 2 < WIDTH) {
           if (block_stacks[x + 1][y].type == block_stacks[x + 2][y].type &&
             block_stacks[x + 2][y].type == curr_type) {
-            var l = 3;
+            l = 3;
             while (x + l < WIDTH && block_stacks[x + l][y].type == curr_type) {
               l++;
             }
@@ -152,7 +153,7 @@ $(function () {
         if (y + 2 < HEIGHT) {
           if (block_stacks[x][y + 1].type == block_stacks[x][y + 2].type &&
             block_stacks[x][y + 2].type == curr_type) {
-            var l = 3;
+            l = 3;
             while (y + l < HEIGHT && block_stacks[x][y + l].type == curr_type) {
               l++;
             }
@@ -170,6 +171,7 @@ $(function () {
     var type = strip[2];
     var l = strip[3];
     var i;
+    scores[block_stacks[x][y].type].innerHTML = +(scores[block_stacks[x][y].type].innerHTML) + (l - 2) * (l - 2);
     if (type == 0) {
       for (i = x; i < x + l; i++) {
         onRemove(block_stacks[i][y]);
@@ -178,6 +180,7 @@ $(function () {
     } else {
       for (i = y; i < y + l; i++) {
         onRemove(block_stacks[x][i]);
+
       }
       block_stacks[x].splice(y, l);
     }
@@ -219,9 +222,6 @@ $(function () {
 
   function update(dt) {
     items.forEach(function (item) {
-      if (item.deleted) {
-        return;
-      }
       if (item.moving) {
         item.lambda += dt * item.speed;
         if (item.lambda > 1) {
@@ -252,5 +252,6 @@ $(function () {
   }
 
   dropToFill();
+  scores.html('0');
   setInterval(onUpdate, 15);
 });
