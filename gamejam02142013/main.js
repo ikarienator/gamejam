@@ -17,6 +17,7 @@ $(function () {
   var canvas = $('.canvas');
   var block_stacks = [];
   var items = [];
+  var scores = $('.score');
   var selected_item = null;
   canvas.width(WIDTH * BLOCK_SIZE).height(HEIGHT * BLOCK_SIZE);
   for (var i = 0; i < WIDTH; i++) {
@@ -43,20 +44,21 @@ $(function () {
   }
 
   function newImage(type, column, row) {
-    var img = $('<img>');
+    var img = document.createElement('img');
     var item = {};
-    img.attr('src', ITEMS[type] + '.jpg').appendTo(canvas);
-    img.click(function (e) {
+    img.src = ITEMS[type] + '.jpg';
+    canvas.append($(img));
+    img.addEventListener('click', function (e) {
       if (item.moving) {
         return false;
       }
       if (!selected_item) {
-        img.addClass('activated');
+        $(img).addClass('activated');
         selected_item = item;
       } else {
 
         var src_item = selected_item;
-        selected_item.img.removeClass('activated');
+        $(selected_item.img).removeClass('activated');
         selected_item = null;
 
         // Toggle selection
@@ -102,9 +104,10 @@ $(function () {
               item.moving = true;
             } else {
               removeStrip(strip, function (item) {
-                item.img.css("opacity", 0);
+                item.img.style.opacity = 0;
+                item.img.style.zIndex = 10;
                 setTimeout(function () {
-                  item.img.remove()
+                  item.img.parentNode.removeChild(item.img);
                 }, 300);
               });
               dropToFill();
@@ -115,12 +118,12 @@ $(function () {
           selected_item = item;
         }
       }
-    });
+    }, false);
     item.type = type;
     item.img = img;
     item.src_pos = mapCoord([column, HEIGHT]);
     item.dst_pos = mapCoord([column, row]);
-    img.css('-webkit-transform', 'translate3d(' + item.src_pos[0] + 'px,' + item.src_pos[1] + 'px, 0px)');
+    img.style.webkitTransform = 'translate3d(' + item.src_pos[0] + 'px,' + item.src_pos[1] + 'px, 0px)';
     item.lambda = 0;
     item.moving = true;
     item.speed = 1.3;
@@ -225,9 +228,9 @@ $(function () {
           item.lambda = 1;
         }
         var lambda = (1 - Math.cos(item.lambda * Math.PI)) / 2;
-        item.img.css('-webkit-transform', 'translate3d(' +
+        item.img.style.webkitTransform = 'translate3d(' +
           (item.src_pos[0] + (item.dst_pos[0] - item.src_pos[0]) * lambda) + 'px,' +
-          (item.src_pos[1] + (item.dst_pos[1] - item.src_pos[1]) * lambda) + 'px, 0px)');
+          (item.src_pos[1] + (item.dst_pos[1] - item.src_pos[1]) * lambda) + 'px, 0px)';
         if (item.lambda == 1) {
           item.moving = false;
           item.src_pos = item.dst_pos.slice(0);
