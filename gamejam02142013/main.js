@@ -118,7 +118,7 @@ $(function () {
             }
           };
         } else {
-          img.addClass('activated');
+          $(img).addClass('activated');
           selected_item = item;
         }
       }
